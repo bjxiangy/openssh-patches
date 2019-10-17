@@ -1,0 +1,105 @@
+diff --git a/session.c b/session.c
+index 2d0958d..0f0f485 100644
+--- a/session.c
++++ b/session.c
+@@ -747,7 +747,11 @@ do_exec(struct ssh *ssh, Session *s, const char *command)
+ 		char *shell = s->pw->pw_shell;
+ 
+ 		if (shell[0] == '\0')	/* empty shell means /bin/sh */
++#ifndef __PASE__
+ 			shell =_PATH_BSHELL;
++#else
++			shell = options.pase_shell;
++#endif
+ 		PRIVSEP(audit_run_command(shell));
+ 	}
+ #endif
+@@ -1095,6 +1099,12 @@ do_setup_env(struct ssh *ssh, Session *s, const char *shell)
+ 	if (s->display)
+ 		child_set_env(&env, &envsize, "DISPLAY", s->display);
+ 
++#ifdef __PASE__
++	/* Needed to support usernames greater than 8 chars in PASE */
++	if (getenv("PASE_USRGRP_LIMITED"))
++		child_set_env(&env, &envsize, "PASE_USRGRP_LIMITED",
++					  getenv("PASE_USRGRP_LIMITED"));
++#endif
+ 	/*
+ 	 * Since we clear KRB5CCNAME at startup, if it's set now then it
+ 	 * must have been set by a native authentication method (eg AIX or
+@@ -1382,6 +1392,7 @@ safely_chroot(const char *path, uid_t uid)
+ void
+ do_setusercontext(struct passwd *pw)
+ {
++#ifndef __PASE__
+ 	char uidstr[32], *chroot_path, *tmp;
+ 
+ 	platform_setusercontext(pw);
+@@ -1457,6 +1468,44 @@ do_setusercontext(struct passwd *pw)
+ 	    strcasecmp(options.chroot_directory, "none") != 0) {
+ 		fatal("server lacks privileges to chroot to ChrootDirectory");
+ 	}
++#else
++        char *user_dir, *new_dir;
++        
++        /* Chroot feature is enabled */
++        user_dir = xstrdup(pw->pw_dir);
++        new_dir = user_dir + 1;
++        while((new_dir = strstr(new_dir,".")) != NULL)
++        {
++            new_dir--;
++
++            if(strncmp(new_dir,"/./", 3) == 0 )
++            {
++                *new_dir = '\0';
++                new_dir += 2;
++                if(getuid() == 0 )
++                {
++                    debug("do_setusercontext: chroot uid is 0");
++                    if(chroot(user_dir) != 0 )
++                    {
++                        fatal("do_setusercontext: Couldn't chroot to user's directory %s", user_dir);
++                    }
++                    chdir("/");
++                }
++                else
++                {
++                    debug("do_setusercontext: request chroot but sshd uid is not 0 Exiting...");
++                    exit(0);
++                }
++                pw->pw_dir = new_dir;
++                break;
++            }
++            new_dir += 2;
++        }
++        
++		aix_usrinfo(pw);
++		/* Permanently switch to the desired uid. */
++		permanently_set_uid(pw);
++#endif
+ 
+ 	if (getuid() != pw->pw_uid || geteuid() != pw->pw_uid)
+ 		fatal("Failed to set uids to %u.", (u_int) pw->pw_uid);
+@@ -1563,7 +1612,9 @@ do_child(struct ssh *ssh, Session *s, const char *command)
+ 		do_motd();
+ #else /* HAVE_OSF_SIA */
+ 	/* When PAM is enabled we rely on it to do the nologin check */
++#ifndef __PASE__
+ 	if (!options.use_pam)
++#endif
+ 		do_nologin(pw);
+ 	do_setusercontext(pw);
+ 	/*
+@@ -1587,7 +1638,12 @@ do_child(struct ssh *ssh, Session *s, const char *command)
+ 	 * Get the shell from the password data.  An empty shell field is
+ 	 * legal, and means /bin/sh.
+ 	 */
++#ifndef __PASE__
+ 	shell = (pw->pw_shell[0] == '\0') ? _PATH_BSHELL : pw->pw_shell;
++#else
++	shell = (pw->pw_shell[0] == '\0') ? options.pase_shell : pw->pw_shell;
++#endif
++	
+ 
+ 	/*
+ 	 * Make sure $SHELL points to the shell from the password file,

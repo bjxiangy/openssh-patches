@@ -1,0 +1,18 @@
+diff --git a/configure.ac b/configure.ac
+index 7379ab3..ed6eefd 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -960,6 +960,13 @@ mips-sony-bsd|mips-sony-newsos4)
+ 	    [syslog_r function is safe to use in in a signal handler])
+ 	TEST_MALLOC_OPTIONS="AFGJPRX"
+ 	;;
++*-*-os400*)
++	AC_DEFINE([NO_UID_RESTORATION_TEST], [1],
++		[Define to disable UID restoration test])
++	AC_DEFINE([DISABLE_FD_PASSING], [1],
++		[Define if your platform needs to skip post auth file descriptor passing])
++	AC_DEFINE([PTY_ZEROREAD], [1], [read(1) can return 0 for a non-closed fd])
++    ;;
+ *-*-solaris*)
+ 	if test "x$withval" != "xno" ; then
+ 		need_dash_r=1

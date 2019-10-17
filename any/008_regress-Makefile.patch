@@ -1,0 +1,14 @@
+diff --git a/regress/Makefile b/regress/Makefile
+index 647b4a0..4eacc3a 100644
+--- a/regress/Makefile
++++ b/regress/Makefile
+@@ -83,8 +83,7 @@ LTESTS= 	connect \
+ 		principals-command \
+ 		cert-file \
+ 		cfginclude \
+-		allow-deny-users \
+-		authinfo
++		allow-deny-users
+ 
+ 
+ #		dhgex \

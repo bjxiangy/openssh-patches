@@ -1,0 +1,86 @@
+diff --git a/openbsd-compat/readpassphrase.c b/openbsd-compat/readpassphrase.c
+index ff8ff3d..e88bc88 100644
+--- a/openbsd-compat/readpassphrase.c
++++ b/openbsd-compat/readpassphrase.c
+@@ -46,6 +46,18 @@
+ #  define _POSIX_VDISABLE       VDISABLE
+ #endif
+ 
++#ifdef __PASE__
++int Qp0zIsATerminal(int fd);
++int Qp0zSetTerminalMode(unsigned char mode,
++                        unsigned char type,
++                        unsigned char *reserved);
++/* Values for Qp0zSetTerminalMode() - from qp0ztrml.h */
++#define QP0Z_TERMINAL_INPUT_MODE  0x01 /* Set input mode @B2A*/
++#define QP0Z_TERMINAL_HIDDEN      0xBD /* Set hidden input mode @B2A*/
++#define QP0Z_TERMINAL_NORMAL      0xBE /* Set normal input mode @B2A*/
++#define QP0Z_TERMINAL_PREVIOUS    0x49 /* Set previous mode @B2A*/
++#endif
++
+ static volatile sig_atomic_t signo[_NSIG];
+ 
+ static void handler(int);
+@@ -55,6 +67,9 @@ readpassphrase(const char *prompt, char *buf, size_t bufsiz, int flags)
+ {
+ 	ssize_t nr;
+ 	int input, output, save_errno, i, need_restart;
++#ifdef __PASE__
++    int qp0zechooff=0;
++#endif
+ 	char ch, *p, *end;
+ 	struct termios term, oterm;
+ 	struct sigaction sa, savealrm, saveint, savehup, savequit, saveterm;
+@@ -79,13 +94,34 @@ restart:
+ 	if ((flags & RPP_STDIN) ||
+ 	    (input = output = open(_PATH_TTY, O_RDWR)) == -1) {
+ 		if (flags & RPP_REQUIRE_TTY) {
++#ifdef __PASE__
++            /* Last chance - see if it is a 5250 session */
++            if(!Qp0zIsATerminal(STDIN_FILENO)) {
++                debug2("readpassphrase: not a 5250 return ENOTTY");
++#endif
+ 			errno = ENOTTY;
+ 			return(NULL);
++#ifdef __PASE__
++            } else {
++                debug2("readpassphrase: This is 5250, use STDIN_FILENO");            	
++            }
++#endif
+ 		}
+ 		input = STDIN_FILENO;
+ 		output = STDERR_FILENO;
+ 	}
+ 
++#ifdef __PASE__
++        if ((!(flags & RPP_ECHO_ON)) && (Qp0zIsATerminal(input)) && (qp0zechooff==0)) {
++            debug2("readpassphrase: turning 5250 echo off");
++            if ( Qp0zSetTerminalMode(QP0Z_TERMINAL_INPUT_MODE,
++                                     QP0Z_TERMINAL_HIDDEN,
++                                     NULL) == 0 ) {
++                qp0zechooff = 1;
++            }
++        }
++#endif
++
+ 	/*
+ 	 * Turn off echo if possible.
+ 	 * If we are using a tty but are not the foreground pgrp this will
+@@ -147,6 +183,17 @@ restart:
+ 	if (!(term.c_lflag & ECHO))
+ 		(void)write(output, "\n", 1);
+ 
++#ifdef __PASE__
++        if (qp0zechooff == 1) {
++            debug2("readpassphrase: turning 5250 echo previous");
++            if ( Qp0zSetTerminalMode(QP0Z_TERMINAL_INPUT_MODE,
++                                     QP0Z_TERMINAL_PREVIOUS,
++                                     NULL) == 0 ) {
++                qp0zechooff = 0;
++            }
++        }
++#endif
++
+ 	/* Restore old terminal settings and signals. */
+ 	if (memcmp(&term, &oterm, sizeof(term)) != 0) {
+ 		const int sigttou = signo[SIGTTOU];

@@ -1,0 +1,12 @@
+diff -u a/mux.c b/mux.c
+--- a/mux.c	2019-01-30 15:56:05.000000000 +0800
++++ b/mux.c	2019-01-30 15:56:54.000000000 +0800
+@@ -1828,7 +1828,7 @@
+ 	case MUX_S_REMOTE_PORT:
+ 		if (cancel_flag)
+ 			fatal("%s: got MUX_S_REMOTE_PORT for cancel", __func__);
+-		if ((r = sshbuf_get_u32(m, &fwd->allocated_port)) != 0)
++		if ((r = sshbuf_get_u32(m, (u_int*)&fwd->allocated_port)) != 0)
+ 			fatal("%s: decode port: %s", __func__, ssh_err(r));
+ 		verbose("Allocated port %u for remote forward to %s:%d",
+ 		    fwd->allocated_port,

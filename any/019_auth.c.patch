@@ -1,0 +1,60 @@
+diff --git a/auth.c b/auth.c
+index 8696f25..98bbd7f 100644
+--- a/auth.c
++++ b/auth.c
+@@ -165,7 +165,11 @@ allowed_user(struct ssh *ssh, struct passwd * pw)
+ 	if (options.chroot_directory == NULL ||
+ 	    strcasecmp(options.chroot_directory, "none") == 0) {
+ 		char *shell = xstrdup((pw->pw_shell[0] == '\0') ?
++#ifdef __PASE__
++		    options.pase_shell : pw->pw_shell);
++#else
+ 		    _PATH_BSHELL : pw->pw_shell); /* empty = /bin/sh */
++#endif
+ 
+ 		if (stat(shell, &st) != 0) {
+ 			logit("User %.100s not allowed because shell %.100s "
+@@ -575,18 +579,43 @@ getpwnamallow(struct ssh *ssh, const char *user)
+ 	log_change_level(options.log_level);
+ 	process_permitopen(ssh, &options);
+ 
++#ifndef __PASE__
+ #if defined(_AIX) && defined(HAVE_SETAUTHDB)
+ 	aix_setauthdb(user);
+ #endif
++#endif
+ 
+ 	pw = getpwnam(user);
+ 
++#ifndef __PASE__
+ #if defined(_AIX) && defined(HAVE_SETAUTHDB)
+ 	aix_restoreauthdb();
+ #endif
++#endif
+ 	if (pw == NULL) {
+ 		logit("Invalid user %.100s from %.100s port %d",
+ 		    user, ssh_remote_ipaddr(ssh), ssh_remote_port(ssh));
++
++#ifdef __PASE__
++        /*
++         * If the user doesn't exist we want to make a call to 
++         * QsyGetProfileHandleNoPwd to force a "nonexistent user" 
++         * QAUDJRN audit journal entry of type PW.
++         */
++	    int  rc;
++	    char profileHandle[12];
++        struct {
++           int bytesProvided;
++           int bytesAvailable;
++           char msgID[7];
++           char reserved;
++        } errorCode;
++
++        errorCode.bytesProvided=sizeof(errorCode);
++        errorCode.bytesAvailable = 0;
++        rc = QsyGetProfileHandleNoPwd(profileHandle, user, "*NOPWD    ", &errorCode);	
++#endif
++
+ #ifdef CUSTOM_FAILED_LOGIN
+ 		record_failed_login(ssh, user,
+ 		    auth_get_canonical_hostname(ssh, options.use_dns), "ssh");

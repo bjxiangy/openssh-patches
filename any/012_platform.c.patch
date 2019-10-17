@@ -1,0 +1,38 @@
+diff --git a/platform.c b/platform.c
+index 41acc93..b230886 100644
+--- a/platform.c
++++ b/platform.c
+@@ -111,6 +111,7 @@ platform_setusercontext(struct passwd *pw)
+ 		solaris_set_default_project(pw);
+ #endif
+ 
++#ifndef __PASE__
+ #if defined(HAVE_LOGIN_CAP) && defined (__bsdi__)
+ 	if (getuid() == 0 || geteuid() == 0)
+ 		setpgid(0, 0);
+@@ -135,6 +136,7 @@ platform_setusercontext(struct passwd *pw)
+ 			error("setluid: %s", strerror(errno));
+ 	}
+ #endif
++#endif /* __PASE__ */
+ }
+ 
+ /*
+@@ -144,6 +146,7 @@ platform_setusercontext(struct passwd *pw)
+ void
+ platform_setusercontext_post_groups(struct passwd *pw)
+ {
++#ifndef __PASE__
+ #if !defined(HAVE_LOGIN_CAP) && defined(USE_PAM)
+ 	/*
+ 	 * PAM credentials may take the form of supplementary groups.
+@@ -185,6 +188,9 @@ platform_setusercontext_post_groups(struct passwd *pw)
+ #ifdef WITH_SELINUX
+ 	ssh_selinux_setup_exec_context(pw->pw_name);
+ #endif
++
++#endif /* __PASE__ */
++
+ }
+ 
+ char *

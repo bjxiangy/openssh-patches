@@ -1,0 +1,17 @@
+diff --git a/openbsd-compat/Makefile.in b/openbsd-compat/Makefile.in
+index c1e14cb..7c002e9 100644
+--- a/openbsd-compat/Makefile.in
++++ b/openbsd-compat/Makefile.in
+@@ -93,8 +93,10 @@ PORTS=	port-aix.o \
+ 	port-linux.o \
+ 	port-solaris.o \
+ 	port-net.o \
+-	port-uw.o
+-
++	port-uw.o \
++    i5osprng.o \
++    i5osswap.o \
++    i5osterm.o
+ .c.o:
+ 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $<
+ 

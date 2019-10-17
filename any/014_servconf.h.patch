@@ -1,0 +1,14 @@
+diff --git a/servconf.h b/servconf.h
+index 0175e00..e60da8a 100644
+--- a/servconf.h
++++ b/servconf.h
+@@ -210,6 +210,9 @@ typedef struct {
+ 	int	fingerprint_hash;
+ 	int	expose_userauth_info;
+ 	u_int64_t timing_secret;
++#ifdef __PASE__
++	char   *pase_shell;        /* shell to use */
++#endif
+ }       ServerOptions;
+ 
+ /* Information about the incoming connection as used by Match */
