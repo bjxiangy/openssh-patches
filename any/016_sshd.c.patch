@@ -1,8 +1,20 @@
 diff --git a/sshd.c b/sshd.c
-index ba26287..a233e3f 100644
+index cbd3bce..44a0c09 100644
 --- a/sshd.c
 +++ b/sshd.c
-@@ -557,8 +557,10 @@ privsep_preauth_child(void)
+@@ -184,6 +184,11 @@ static int num_listen_socks = 0;
+ int auth_sock = -1;
+ static int have_agent = 0;
+ 
++/*Change LogLevel of non-priviledge process on i*/
++#ifdef __PASE__
++static int disable_preauth_joblog = 1;
++#endif
++
+ /*
+  * Any really sensitive data in the application is contained in this
+  * structure. The idea is that this structure could be locked into memory so
+@@ -468,9 +473,27 @@ privsep_preauth_child(void)
  		debug3("privsep user:group %u:%u", (u_int)privsep_pw->pw_uid,
  		    (u_int)privsep_pw->pw_gid);
  		gidset[0] = privsep_pw->pw_gid;
@@ -11,9 +23,34 @@ index ba26287..a233e3f 100644
  			fatal("setgroups: %.100s", strerror(errno));
 +#endif
  		permanently_set_uid(privsep_pw);
++
++#ifdef __PASE__
++        struct {
++		    int bytesProvided;
++		    int bytesAvailable;
++		    char msgID[7];
++		    char reserved;
++	    } errorCode;
++
++        if (disable_preauth_joblog)	 {
++	        errorCode.bytesProvided=sizeof(errorCode);
++	        errorCode.bytesAvailable = 0;
++		    int rc = QWTCHGJBLOG(&errorCode);
++		    debug3("QWTCHGJBLOG rc=%d avail=%d msgid=%.7s", rc, errorCode.bytesAvailable, errorCode.msgID);
++        }
++#endif
  	}
  }
-@@ -1939,6 +1941,18 @@ main(int ac, char **av)
+ 
+@@ -1596,7 +1619,6 @@ main(int ac, char **av)
+ 	    options.log_facility == SYSLOG_FACILITY_NOT_SET ?
+ 	    SYSLOG_FACILITY_AUTH : options.log_facility,
+ 	    log_stderr || !inetd_flag);
+-
+ 	/*
+ 	 * Unset KRB5CCNAME, otherwise the user's session may inherit it from
+ 	 * root's environment
+@@ -1898,6 +1920,23 @@ main(int ac, char **av)
  	/* Reinitialize the log (because of the fork above). */
  	log_init(__progname, options.log_level, options.log_facility, log_stderr);
  
@@ -27,12 +64,17 @@ index ba26287..a233e3f 100644
 +	errorCode.bytesProvided=sizeof(errorCode);
 +	errorCode.bytesAvailable = 0;
 +	QWTCHGJB(1, &errorCode); /* 1 == change job server type to sshd */
++
++	if (getenv("QIBM_ENABLE_PREAUTH_JOBLOG") != NULL) {
++        disable_preauth_joblog=0;
++        debug3("preauth process joblog level is %s", (disable_preauth_joblog==0 ? "enabled": "disabled"));
++	}
 +#endif
 +
  	/* Chdir to the root directory so that the current disk can be
  	   unmounted if desired. */
  	if (chdir("/") == -1)
-@@ -1973,6 +1987,40 @@ main(int ac, char **av)
+@@ -1932,6 +1971,40 @@ main(int ac, char **av)
  				fprintf(f, "%ld\n", (long) getpid());
  				fclose(f);
  			}
@@ -43,7 +85,7 @@ index ba26287..a233e3f 100644
 +			}
 +
 +
-+			/* 
++			/*
 +			  On i5/OS also record our pid in /QOpenSys/QIBM/UserData/SC1/OpenSSH/etc/sshd.pid
 +			  for QSC101SRVR server start/end program to find the right pid
 +			  and also allow user to change location of pid file above without
@@ -51,7 +93,7 @@ index ba26287..a233e3f 100644
 +
 +			  Only do this when started with STRTCPSVR - we use debug_flag and
 +			  ports_from_cmdline as flags indicative of a "manual" (not STRTCPSVR)
-+			  invocation 
++			  invocation
 +			*/
 +			if (!debug_flag && !options.ports_from_cmdline) {
 +#define I5OS_PIDFILE SSHDIR "/sshd.pid"

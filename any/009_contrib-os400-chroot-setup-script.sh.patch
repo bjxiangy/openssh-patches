@@ -1,5 +1,8 @@
---- a/contrib/os400/chroot_setup_script.sh	1969-12-31 18:00:00.000000000 -0600
-+++ b/contrib/os400/chroot_setup_script.sh	2017-01-09 18:46:53.187220000 -0600
+diff --git b/contrib/os400/chroot_setup_script.sh b/contrib/os400/chroot_setup_script.sh
+new file mode 100644
+index 0000000..68ffe05
+--- /dev/null
++++ b/contrib/os400/chroot_setup_script.sh
 @@ -0,0 +1,318 @@
 +#!/QOpenSys/usr/bin/ksh
 +
@@ -53,7 +56,7 @@
 +    echo "Unsupported version $V.$R"
 +    exit 1
 +  fi
-+  
++
 +  USERDATA=/QOpenSys/QIBM/UserData/SC1/OpenSSH
 +  PRODDATA=/QOpenSys/QIBM/ProdData/SC1/OpenSSH
 +  ;;
@@ -97,7 +100,7 @@
 +function log_cmd
 +{
 +  log_only "$@"
-+  
++
 +  prog=`shift`
 +  $prog "$@" >> $LOGFILE 2>&1
 +}
@@ -167,7 +170,7 @@
 +# Step 4 - set directory permissions
 +log
 +log "########## STEP 4 ##########"
-+log "Make sure that the permissions on all the files created inside the chrooted directory" 
++log "Make sure that the permissions on all the files created inside the chrooted directory"
 +log "are same as the one for the original directories"
 +log_only
 +log_cmd /QOpenSys/usr/bin/chmod -R 0755 $CHROOTDIR
@@ -176,7 +179,7 @@
 +# Step 5 - create QOpenSys/usr symlink
 +log
 +log "########## STEP 5 ##########"
-+log "Create QOpenSys/usr symlink inside the chroot-dir directory" 
++log "Create QOpenSys/usr symlink inside the chroot-dir directory"
 +log_only
 +log_cmd /QOpenSys/usr/bin/ln -s ../usr $CHROOTDIR/QOpenSys/usr
 +
@@ -202,7 +205,7 @@
 +  show_progress
 +done
 +
-+for i in /usr/lib/libc.a /usr/lib/libpthreads.a /usr/lib/libiconv.a /usr/lib/libcrypt.a /usr/lib/libcrypto.a /usr/lib/libX11.a /usr/lib/libXext.a /usr/lib/libIM.a /usr/lib/libICE.a /usr/lib/libXi.a /usr/lib/libSM.a /usr/lib/libgaimisc.a /usr/lib/libgair4.a /usr/lib/libC.a /usr/lib/libz.a
++for i in /usr/lib/libc.a /usr/lib/libpthreads.a /usr/lib/libiconv.a /usr/lib/libcrypt.a /usr/lib/libcrypto.a /usr/lib/libcrypto.so.1.1 /usr/lib/libX11.a /usr/lib/libXext.a /usr/lib/libIM.a /usr/lib/libICE.a /usr/lib/libXi.a /usr/lib/libSM.a /usr/lib/libgaimisc.a /usr/lib/libgair4.a /usr/lib/libC.a /usr/lib/libz.a
 +do
 +  log_cmd /QOpenSys/usr/bin/cp -p $i $CHROOTDIR/$i
 +  log_cmd /QOpenSys/usr/bin/ls -l $CHROOTDIR/$i

@@ -1,7 +1,9 @@
-diff -Nru a/openbsd-compat/i5osswap.c b/openbsd-compat/i5osswap.c
---- a/openbsd-compat/i5osswap.c	1969-12-31 18:00:00.000000000 -0600
-+++ b/openbsd-compat/i5osswap.c	2017-01-30 11:38:35.850962870 -0600
-@@ -0,0 +1,1013 @@
+diff --git b/openbsd-compat/i5osswap.c b/openbsd-compat/i5osswap.c
+new file mode 100644
+index 0000000..f0ded2a
+--- /dev/null
++++ b/openbsd-compat/i5osswap.c
+@@ -0,0 +1,1122 @@
 +/* Name:  i5osswap.c
 + *
 + * Wrapers for i5/OS procedures and programs
@@ -987,6 +989,115 @@ diff -Nru a/openbsd-compat/i5osswap.c b/openbsd-compat/i5osswap.c
 +   return rc;
 +
 +} /* QWTCHGJB */
++
++/*
++* Change non-priviledge process JOBLOG to (0 99 *NOLIST)
++* to dismiss excessive joblogs due to limitation in PASE
++*/
++int32 QWTCHGJBLOG(void * arg) {
++
++    void *qwtchgjb_argv[6];
++    THREAD_DATA *dataPtr;
++
++    /* jobname is "*                         " in EBCDIC */
++    char jobName[26] = { 0x5c, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
++                        0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
++                        0x40, 0x40, 0x40, 0x40, 0x40, 0x40 };
++    /* jobid is "                " in EBCDIC */
++    char jobId[16] = { 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40,
++                      0x40, 0x40, 0x40, 0x40, 0x40, 0x40 };
++
++    /* jobc100 is "JOBC0100" in EBCDIC */
++    char jobc0100[8] = { 0xd1, 0xd6, 0xc2, 0xc3, 0xf0, 0xf1, 0xf0, 0xf0 };
++
++
++    typedef struct jobc0100Header
++    {
++       int  Length_Field_Info_;
++       int  Key_Field;
++       char Type_Of_Data[4];
++       int  Length_Data;
++    } jobc0100Header_t;
++
++    // Will be changing log level, severity, and text.
++    typedef struct jobc0100ChangeInfo{
++      int numEntries;   // Total num of entries
++
++      jobc0100Header_t logLevel;  // Log level key
++      char level;
++      char reserved1[3];
++
++      jobc0100Header_t logSeverity; // Severity key
++      int severity;
++
++      jobc0100Header_t logText;     // Message text key
++      char text[7];
++      char reserved2;
++
++    } jobc0100ChangeInfo_t;
++
++    jobc0100ChangeInfo_t info = {
++        3,
++        sizeof(jobc0100Header_t) + 4,
++        1202, /* Logging Level*/
++        0xc3, 0x40, 0x40, 0x40, /* dataType is "C   " in EBCDIC */
++        4, /* dataLen is sizeof(dataChar) */
++        /* datachar of logLevel is "0   " in EBCDIC */
++        0xf0, 0x40, 0x40, 0x40,
++
++        sizeof(jobc0100Header_t) + 4, /*Length of jobc0100ChangeInfo_t + int */
++        1204,
++        0xc2, 0x40, 0x40, 0x40, /* dataType is "B   " in EBCDIC */
++        4, /* dataLen is sizeof(dataChar) */
++        /* logLevel is "0    " in binary */
++        99,
++
++        sizeof(jobc0100Header_t) + 8, /*Length of jobc0100ChangeInfo_t + test[7] + reserved2*/
++        1205,
++        0xc3, 0x40, 0x40, 0x40, /* dataType is "C   " in EBCDIC */
++        8, /* dataLen is sizeof(dataChar) */
++        //0x5c, 0xe2, 0xc5, 0xc3, 0xd3, 0xe5, 0xd3, 0x40  /* logLevel is "*SECLVL " in EBCDIC */
++        0x5c, 0xd5, 0xd6, 0xd3, 0xc9, 0xe2, 0xe3, 0x40    /* logLevel is "*NOLIST " in EBCDIC */
++    };
++
++    /* API error code */
++    Qus_EC_t * errorCode;
++
++    char asciiMsg_Id[7];
++    int32 rc; /* SETUP and _PGMCALL return code */
++
++    SETUP(dataPtr, NOCCSIDOVERRIDE, rc); /* Ensure environment is setup */
++
++    if (rc == 0) { /* SETUP worked so continue */
++      errorCode = (Qus_EC_t*)arg;
++      /* Set arguments */
++      qwtchgjb_argv[0] = &jobName;
++      qwtchgjb_argv[1] = &jobId;
++      qwtchgjb_argv[2] = &jobc0100;
++      qwtchgjb_argv[3] = &info;
++      qwtchgjb_argv[4] = errorCode;
++      qwtchgjb_argv[5] = NULL;
++    }
++
++
++    rc = _PGMCALL(&(export->QWTCHGJB_ptr), (void**)&qwtchgjb_argv, 0);
++
++    if (rc == 0) { /* _PGMCALL worked so continue */
++       if (errorCode->Bytes_Provided >= (sizeof(Qus_EC_t)-1)) {
++           if (errorCode->Bytes_Available >= (sizeof(Qus_EC_t)-1)) {
++             CONVERTLENGTH(dataPtr->cd_ebcdic_to_ascii, errorCode->Msg_Id, asciiMsg_Id,
++                            sizeof(asciiMsg_Id), rc, OUTPUT_CONVERT_FAILED);
++             memcpy(errorCode->Msg_Id, asciiMsg_Id, sizeof(asciiMsg_Id));
++         rc = -1;
++      }
++           else {
++             memset(errorCode->Msg_Id, ' ', sizeof(asciiMsg_Id));
++           }
++       } /* Bytes_Provided >= sizeof(Qus_EC_t) */
++   } /* _PGMCALL worked */
++
++   return rc;
++}
 +
 +/*
 + * record_failed_login: record audit entry for failed login
